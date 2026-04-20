@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEAFS — BDM Live Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #08080f;
+    --surface: #0f0f1a;
+    --surface2: #161624;
+    --border: rgba(255,255,255,0.06);
+    --purple: #7C3AED;
+    --purple-light: #A855F7;
+    --purple-pale: rgba(124,58,237,0.12);
+    --purple-border: rgba(124,58,237,0.25);
+    --gold: #FFD700;
+    --gold-pale: rgba(255,215,0,0.1);
+    --gold-border: rgba(255,215,0,0.25);
+    --green: #10B981;
+    --green-pale: rgba(16,185,129,0.1);
+    --red: #EF4444;
+    --red-pale: rgba(239,68,68,0.1);
+    --amber: #F59E0B;
+    --amber-pale: rgba(245,158,11,0.1);
+    --text: #f0f0f0;
+    --muted: rgba(255,255,255,0.4);
+    --dim: rgba(255,255,255,0.2);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 10% 0%, rgba(124,58,237,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 100%, rgba(255,215,0,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Header */
+  .header {
+    position: relative;
+    z-index: 10;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 16px; }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 6px;
+    color: #fff;
+  }
+
+  .header-divider {
+    width: 1px; height: 28px;
+    background: var(--border);
+  }
+
+  .header-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .header-right { display: flex; align-items: center; gap: 14px; }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--green-pale);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 100px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--green);
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .last-updated {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 0.5px;
+  }
+
+  .refresh-btn {
+    background: var(--purple-pale);
+    border: 1px solid var(--purple-border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--purple-light);
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+
+  .refresh-btn:hover {
+    background: rgba(124,58,237,0.2);
+  }
+
+  /* Main content */
+  .main {
+    position: relative;
+    z-index: 1;
+    padding: 28px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 80px 20px;
+  }
+
+  .loading-spinner {
+    width: 48px; height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--purple-light);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* Stat cards row */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 18px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease forwards;
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .stat-card.purple::before { background: linear-gradient(90deg, var(--purple), var(--purple-light)); }
+  .stat-card.gold::before { background: linear-gradient(90deg, var(--gold), #FFA500); }
+  .stat-card.green::before { background: var(--green); }
+  .stat-card.red::before { background: var(--red); }
+  .stat-card.amber::before { background: var(--amber); }
+
+  .stat-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    line-height: 1;
+    color: #fff;
+    letter-spacing: 1px;
+  }
+
+  .stat-value.gold { color: var(--gold); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.purple { color: var(--purple-light); }
+  .stat-value.amber { color: var(--amber); }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 4px;
+  }
+
+  /* Two column layout */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  /* Panel */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease 0.1s forwards;
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .panel-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--purple-light);
+    background: var(--purple-pale);
+    border: 1px solid var(--purple-border);
+    border-radius: 100px;
+    padding: 2px 10px;
+  }
+
+  .panel-body { padding: 16px 20px; }
+
+  /* BDM leaderboard */
+  .bdm-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .bdm-row:last-child { border-bottom: none; }
+
+  .bdm-rank {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: var(--dim);
+    min-width: 28px;
+    text-align: center;
+  }
+
+  .bdm-rank.top { color: var(--gold); }
+
+  .bdm-info { flex: 1; min-width: 0; }
+
+  .bdm-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bdm-meta {
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 2px;
+  }
+
+  .bdm-bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bdm-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--purple), var(--purple-light));
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }
+
+  .bdm-count {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    color: var(--purple-light);
+    min-width: 36px;
+    text-align: right;
+  }
+
+  /* Donut chart placeholder */
+  .donut-wrap {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 8px 0;
+  }
+
+  .donut-chart {
+    width: 100px;
+    height: 100px;
+    flex-shrink: 0;
+  }
+
+  .donut-legend { flex: 1; }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .legend-val {
+    margin-left: auto;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  /* Recent visits table */
+  .visits-table { width: 100%; border-collapse: collapse; }
+
+  .visits-table th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--dim);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .visits-table td {
+    padding: 9px 12px;
+    font-size: 12px;
+    color: var(--text);
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .visits-table tr:last-child td { border-bottom: none; }
+  .visits-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .tag.yes { background: var(--green-pale); color: var(--green); }
+  .tag.no { background: var(--red-pale); color: var(--red); }
+  .tag.followup { background: var(--amber-pale); color: var(--amber); }
+  .tag.noManager { background: rgba(255,255,255,0.05); color: var(--dim); }
+
+  /* Progress bar stat */
+  .progress-stat {
+    margin-bottom: 14px;
+  }
+
+  .progress-stat:last-child { margin-bottom: 0; }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .progress-name { font-size: 12px; color: var(--muted); }
+  .progress-pct { font-size: 12px; font-weight: 700; color: #fff; }
+
+  .progress-track {
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease;
+  }
+
+  /* Error state */
+  .error-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  @media (max-width: 900px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .main { padding: 16px; }
+    .header { padding: 12px 16px; }
+    .header-title, .last-updated { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">NEAFS</div>
+    <div class="header-divider"></div>
+    <div class="header-title">BDM Live Dashboard</div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      Live
+    </div>
+    <div class="last-updated" id="lastUpdated">Loading...</div>
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  </div>
+</div>
+
+<div class="main">
+  <div id="loadingState" class="loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Loading visit data...</div>
+  </div>
+
+  <div id="dashboardContent" style="display:none;">
+
+    <!-- STATS ROW -->
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <!-- ROW 1: Leaderboard + TEO-X + Elonex -->
+    <div class="grid-3">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">BDM Leaderboard</div>
+          <div class="panel-badge" id="leaderboardBadge">0 BDMs</div>
+        </div>
+        <div class="panel-body" id="leaderboardBody"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">TEO-X Interest</div>
+          <div class="panel-badge" id="teoxBadge"></div>
+        </div>
+        <div class="panel-body" id="teoxBody"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Product Interest</div>
+          <div class="panel-badge" id="productBadge"></div>
+        </div>
+        <div class="panel-body" id="productBody"></div>
+      </div>
+    </div>
+
+    <!-- ROW 2: Recent Visits -->
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="panel-header">
+        <div class="panel-title">Recent Store Visits</div>
+        <div class="panel-badge" id="recentBadge">Latest 20</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="visits-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>BDM</th>
+              <th>Store</th>
+              <th>Postcode</th>
+              <th>Products</th>
+              <th>Contracts</th>
+              <th>TEO-X</th>
+              <th>Sales</th>
+              <th>Follow Up</th>
+              <th>Rating</th>
+            </tr>
+          </thead>
+          <tbody id="recentVisitsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ROW 3: Follow ups + Elonex breakdown -->
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Follow Ups Required</div>
+          <div class="panel-badge" id="followupBadge"></div>
+        </div>
+        <div class="panel-body" id="followupBody"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Visit Ratings Breakdown</div>
+          <div class="panel-badge" id="ratingBadge"></div>
+        </div>
+        <div class="panel-body" id="ratingBody"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT2iMhuCV30UbAtzJu2DLkSdJmrqhJRf8UODvfzFKFbQzPXerhJVZAhY9KNP-UrTVIBPc439mB_Kg97/pub?output=csv';
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  return lines.slice(1).map(line => {
+    const vals = [];
+    let cur = '';
+    let inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') { inQuote = !inQuote; }
+      else if (line[i] === ',' && !inQuote) { vals.push(cur.trim()); cur = ''; }
+      else { cur += line[i]; }
+    }
+    vals.push(cur.trim());
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = (vals[i] || '').replace(/^"|"$/g, '').trim());
+    return obj;
+  }).filter(row => row['Timestamp'] && row['Timestamp'] !== 'ERROR' && row['BDM Name']);
+}
+
+function fmt(date) {
+  if (!date) return '—';
+  const d = new Date(date);
+  if (isNaN(d)) return date;
+  return d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+}
+
+function buildStats(rows) {
+  const totalVisits = rows.length;
+  const contractsTotal = rows.reduce((s,r) => s + (parseInt(r['Contracts Signed']) || 0), 0);
+  const salesRows = rows.filter(r => r['Sales Made'] === 'Yes');
+  const totalSales = salesRows.reduce((s,r) => {
+    const amt = parseFloat((r['Sales Amount'] || '0').replace(/[^0-9.]/g,''));
+    return s + (isNaN(amt) ? 0 : amt);
+  }, 0);
+  const followUps = rows.filter(r => r['Follow Up Required'] === 'Yes').length;
+  const noManager = rows.filter(r => r['Follow Up Required'] && r['Follow Up Required'].includes('No manager')).length;
+  const teoxYes = rows.filter(r => r['TEO-X Interest'] === 'Yes' || r['TEO-X Interest'] === 'Yes ').length;
+  const avgRating = rows.filter(r => r['Visit Rating'] && !isNaN(parseInt(r['Visit Rating']))).reduce((s,r,_,a) => s + parseInt(r['Visit Rating'])/a.length, 0);
+
+  const stats = [
+    { label: 'Total Visits', value: totalVisits, sub: 'All time', color: 'purple', cls: 'purple' },
+    { label: 'Contracts Signed', value: contractsTotal, sub: 'Across all visits', color: 'gold', cls: 'gold' },
+    { label: 'Sales Revenue', value: totalSales > 0 ? '£' + totalSales.toFixed(0) : '—', sub: 'From reported sales', color: 'green', cls: 'green' },
+    { label: 'Follow Ups', value: followUps, sub: 'Action required', color: 'amber', cls: 'amber' },
+    { label: 'TEO-X Interest', value: teoxYes, sub: 'Stores interested', color: 'purple', cls: 'purple' },
+    { label: 'No Manager', value: noManager, sub: 'Visits logged', color: '', cls: '' },
+    { label: 'Avg Rating', value: avgRating > 0 ? avgRating.toFixed(1) + '/5' : '—', sub: 'Visit quality', color: 'green', cls: 'green' },
+  ];
+
+  const grid = document.getElementById('statsGrid');
+  grid.innerHTML = stats.map((s, i) => `
+    <div class="stat-card ${s.cls}" style="animation-delay:${i*0.06}s">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value ${s.color}">${s.value}</div>
+      <div class="stat-sub">${s.sub}</div>
+    </div>
+  `).join('');
+}
+
+function buildLeaderboard(rows) {
+  const counts = {};
+  const contracts = {};
+  rows.forEach(r => {
+    const name = r['BDM Name'] || 'Unknown';
+    counts[name] = (counts[name] || 0) + 1;
+    contracts[name] = (contracts[name] || 0) + (parseInt(r['Contracts Signed']) || 0);
+  });
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+  const max = sorted[0]?.[1] || 1;
+
+  document.getElementById('leaderboardBadge').textContent = sorted.length + ' BDMs';
+  document.getElementById('leaderboardBody').innerHTML = sorted.map(([name, count], i) => `
+    <div class="bdm-row">
+      <div class="bdm-rank ${i===0?'top':''}">${i+1}</div>
+      <div class="bdm-info">
+        <div class="bdm-name">${name}</div>
+        <div class="bdm-meta">${contracts[name]||0} contract${contracts[name]!==1?'s':''} signed</div>
+      </div>
+      <div class="bdm-bar-wrap">
+        <div class="bdm-bar" style="width:${Math.round(count/max*100)}%"></div>
+      </div>
+      <div class="bdm-count">${count}</div>
+    </div>
+  `).join('');
+}
+
+function buildDonut(data, colors, containerId, badgeId, badgeText) {
+  const total = Object.values(data).reduce((s,v) => s+v, 0);
+  document.getElementById(badgeId).textContent = badgeText || total + ' total';
+
+  if (total === 0) {
+    document.getElementById(containerId).innerHTML = '<div class="error-state">No data yet</div>';
+    return;
+  }
+
+  const entries = Object.entries(data).filter(([,v]) => v > 0);
+  let offset = 0;
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const segments = entries.map(([label, val]) => {
+    const pct = val / total;
+    const dash = pct * circumference;
+    const seg = { label, val, pct, dash, offset };
+    offset += dash;
+    return seg;
+  });
+
+  const svgSegments = segments.map((s, i) => `
+    <circle cx="50" cy="50" r="${radius}"
+      fill="none"
+      stroke="${colors[i % colors.length]}"
+      stroke-width="12"
+      stroke-dasharray="${s.dash} ${circumference - s.dash}"
+      stroke-dashoffset="${-s.offset + circumference * 0.25}"
+      transform="rotate(-90, 50, 50)"
+    />
+  `).join('');
+
+  const legend = entries.map(([ label, val ], i) => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${colors[i % colors.length]}"></div>
+      <span>${label}</span>
+      <span class="legend-val">${val}</span>
+    </div>
+  `).join('');
+
+  document.getElementById(containerId).innerHTML = `
+    <div class="donut-wrap">
+      <svg class="donut-chart" viewBox="0 0 100 100">
+        ${svgSegments}
+        <text x="50" y="54" text-anchor="middle" fill="white" font-size="18" font-family="Bebas Neue" letter-spacing="1">${total}</text>
+      </svg>
+      <div class="donut-legend">${legend}</div>
+    </div>
+  `;
+}
+
+function buildTeox(rows) {
+  const counts = { Yes: 0, No: 0, 'Already stocked': 0, 'Follow up needed': 0 };
+  rows.forEach(r => {
+    const v = r['TEO-X Interest'];
+    if (counts.hasOwnProperty(v)) counts[v]++;
+  });
+  buildDonut(counts,
+    ['#10B981', '#EF4444', '#A855F7', '#F59E0B'],
+    'teoxBody', 'teoxBadge', 'TEO-X responses');
+}
+
+function buildProducts(rows) {
+  const counts = { 'Already stocked': 0, 'Yes': 0, 'No': 0, 'Follow up needed': 0 };
+  rows.forEach(r => {
+    const v = r['Other Products Interest'];
+    if (counts.hasOwnProperty(v)) counts[v]++;
+    else if (v) counts['Yes']++;
+  });
+  buildDonut(counts,
+    ['#A855F7', '#10B981', '#EF4444', '#F59E0B'],
+    'productBody', 'productBadge', 'UNO+ / Pouches');
+}
+
+function buildRecentVisits(rows) {
+  const recent = [...rows].reverse().slice(0, 20);
+  document.getElementById('recentBadge').textContent = 'Latest ' + recent.length;
+  document.getElementById('recentVisitsBody').innerHTML = recent.map(r => {
+    const noMgr = r['Follow Up Required'] && r['Follow Up Required'].includes('No manager');
+    const contracts = r['Contracts Signed'];
+    const contractTag = contracts === '1' ? '<span class="tag yes">YES</span>' :
+                        contracts === '0' ? '<span class="tag no">NO</span>' : '—';
+    const teox = r['TEO-X Interest'];
+    const teoxTag = teox === 'Yes' ? '<span class="tag yes">YES</span>' :
+                    teox === 'No' ? '<span class="tag no">NO</span>' :
+                    teox === 'Already stocked' ? '<span class="tag yes">STOCKED</span>' :
+                    teox ? `<span class="tag followup">${teox}</span>` : '—';
+    const sales = r['Sales Made'] === 'Yes'
+      ? `<span class="tag yes">£${r['Sales Amount'] || '?'}</span>`
+      : '<span class="tag no">NO</span>';
+    const fu = r['Follow Up Required'] === 'Yes'
+      ? '<span class="tag followup">YES</span>'
+      : noMgr ? '<span class="tag noManager">NO MGR</span>'
+      : '—';
+    const rating = r['Visit Rating'] ? r['Visit Rating'] + '/5' : '—';
+
+    return `<tr>
+      <td style="color:var(--dim);font-size:11px;">${fmt(r['Timestamp'])}</td>
+      <td style="font-weight:600;">${r['BDM Name'] || '—'}</td>
+      <td>${r['Store Name'] || '—'}</td>
+      <td style="color:var(--dim);font-size:11px;">${r['Postcode'] || '—'}</td>
+      <td style="font-size:11px;color:var(--dim);">${(r['Products Stocked'] || '—').substring(0,25)}</td>
+      <td>${contractTag}</td>
+      <td>${teoxTag}</td>
+      <td>${sales}</td>
+      <td>${fu}</td>
+      <td style="font-weight:700;color:var(--gold)">${rating}</td>
+    </tr>`;
+  }).join('');
+}
+
+function buildFollowUps(rows) {
+  const followups = rows.filter(r => r['Follow Up Required'] === 'Yes' && r['Follow Up Notes']);
+  document.getElementById('followupBadge').textContent = followups.length + ' pending';
+
+  if (followups.length === 0) {
+    document.getElementById('followupBody').innerHTML = '<div class="error-state">No follow ups required ✓</div>';
+    return;
+  }
+
+  document.getElementById('followupBody').innerHTML = followups.slice(0,8).map(r => `
+    <div class="bdm-row">
+      <div class="bdm-info">
+        <div class="bdm-name">${r['Store Name'] || 'Unknown store'}</div>
+        <div class="bdm-meta">${r['BDM Name']} · ${r['Postcode']} · ${fmt(r['Timestamp'])}</div>
+        <div class="bdm-meta" style="color:var(--amber);margin-top:2px;">${r['Follow Up Notes']}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function buildRatings(rows) {
+  const counts = { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 };
+  rows.forEach(r => { if (r['Visit Rating'] && counts[r['Visit Rating']] !== undefined) counts[r['Visit Rating']]++; });
+  const total = Object.values(counts).reduce((s,v) => s+v, 0);
+  const max = Math.max(...Object.values(counts)) || 1;
+  const colors = { '5': '#10B981', '4': '#A855F7', '3': '#FFD700', '2': '#F59E0B', '1': '#EF4444' };
+
+  document.getElementById('ratingBadge').textContent = total + ' rated';
+  document.getElementById('ratingBody').innerHTML = ['5','4','3','2','1'].map(r => `
+    <div class="progress-stat">
+      <div class="progress-label">
+        <span class="progress-name">${r} Star${r!=='1'?'s':''}</span>
+        <span class="progress-pct">${counts[r]}</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width:${Math.round(counts[r]/max*100)}%;background:${colors[r]}"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadData() {
+  document.getElementById('lastUpdated').textContent = 'Refreshing...';
+  try {
+    const res = await fetch(CSV_URL + '&t=' + Date.now());
+    const text = await res.text();
+    const rows = parseCSV(text);
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('dashboardContent').style.display = 'block';
+
+    buildStats(rows);
+    buildLeaderboard(rows);
+    buildTeox(rows);
+    buildProducts(rows);
+    buildRecentVisits(rows);
+    buildFollowUps(rows);
+    buildRatings(rows);
+
+    const now = new Date();
+    document.getElementById('lastUpdated').textContent =
+      'Updated ' + now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  } catch(err) {
+    document.getElementById('loadingState').innerHTML =
+      '<div class="error-state">Could not load data.<br>Check your internet connection and try refreshing.<br><br>' +
+      '<button class="refresh-btn" onclick="loadData()">↻ Try Again</button></div>';
+    document.getElementById('lastUpdated').textContent = 'Error';
+  }
+}
+
+// Load on start
+loadData();
+
+// Auto refresh every 2 minutes
+setInterval(loadData, 120000);
+</script>
+</body>
+</html>

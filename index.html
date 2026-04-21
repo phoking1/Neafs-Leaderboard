@@ -498,16 +498,26 @@
     <!-- STATS ROW -->
     <div class="stats-grid" id="statsGrid"></div>
 
-    <!-- ROW 1: Leaderboard + TEO-X + Elonex -->
-    <div class="grid-3">
+    <!-- ROW 1: Visits + Contracts + TEO-X + Products -->
+    <div class="grid-2" style="margin-bottom:20px;">
       <div class="panel">
         <div class="panel-header">
-          <div class="panel-title">BDM Leaderboard</div>
+          <div class="panel-title">BDM Visits</div>
           <div class="panel-badge" id="leaderboardBadge">0 BDMs</div>
         </div>
         <div class="panel-body" id="leaderboardBody"></div>
       </div>
 
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Contracts Signed</div>
+          <div class="panel-badge" id="contractsBadge">0 total</div>
+        </div>
+        <div class="panel-body" id="contractsBody"></div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:20px;">
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">TEO-X Interest</div>
@@ -715,6 +725,39 @@ function buildDonut(data, colors, containerId, badgeId, badgeText) {
   `;
 }
 
+function buildContracts(rows) {
+  const counts = {};
+  rows.forEach(r => {
+    const name = r['BDM Name'] || 'Unknown';
+    const val = parseInt(r['Contracts Signed']) || 0;
+    counts[name] = (counts[name] || 0) + val;
+  });
+  const sorted = Object.entries(counts).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]);
+  const total = sorted.reduce((s,[,v]) => s+v, 0);
+  const max = sorted[0]?.[1] || 1;
+
+  document.getElementById('contractsBadge').textContent = total + ' total';
+
+  if (sorted.length === 0) {
+    document.getElementById('contractsBody').innerHTML = '<div class="error-state">No contracts recorded yet</div>';
+    return;
+  }
+
+  document.getElementById('contractsBody').innerHTML = sorted.map(([name, count], i) => `
+    <div class="bdm-row">
+      <div class="bdm-rank ${i===0?'top':''}">${i+1}</div>
+      <div class="bdm-info">
+        <div class="bdm-name">${name}</div>
+        <div class="bdm-meta">${count} contract${count!==1?'s':''} signed</div>
+      </div>
+      <div class="bdm-bar-wrap">
+        <div class="bdm-bar" style="width:${Math.round(count/max*100)}%;background:linear-gradient(90deg,#FFD700,#FFA500)"></div>
+      </div>
+      <div class="bdm-count" style="color:var(--gold)">${count}</div>
+    </div>
+  `).join('');
+}
+
 function buildTeox(rows) {
   const counts = { Yes: 0, No: 0, 'Already stocked': 0, 'Follow up needed': 0 };
   rows.forEach(r => {
@@ -828,6 +871,7 @@ async function loadData() {
 
     buildStats(rows);
     buildLeaderboard(rows);
+    buildContracts(rows);
     buildTeox(rows);
     buildProducts(rows);
     buildRecentVisits(rows);

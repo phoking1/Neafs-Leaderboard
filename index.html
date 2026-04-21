@@ -482,6 +482,10 @@
       <div class="live-dot"></div>
       Live
     </div>
+    <div style="display:flex;gap:6px;">
+      <button class="refresh-btn active-filter" id="btnToday" onclick="setFilter('today')" style="background:rgba(124,58,237,0.3);border-color:rgba(124,58,237,0.6);color:#fff;">Today</button>
+      <button class="refresh-btn" id="btnAllTime" onclick="setFilter('all')">All Time</button>
+    </div>
     <div class="last-updated" id="lastUpdated">Loading...</div>
     <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
   </div>
@@ -859,12 +863,37 @@ function buildRatings(rows) {
   `).join('');
 }
 
+let currentFilter = 'today';
+
+function setFilter(filter) {
+  currentFilter = filter;
+  document.getElementById('btnToday').style.background = filter === 'today' ? 'rgba(124,58,237,0.3)' : 'var(--purple-pale)';
+  document.getElementById('btnToday').style.borderColor = filter === 'today' ? 'rgba(124,58,237,0.6)' : 'var(--purple-border)';
+  document.getElementById('btnToday').style.color = filter === 'today' ? '#fff' : 'var(--purple-light)';
+  document.getElementById('btnAllTime').style.background = filter === 'all' ? 'rgba(124,58,237,0.3)' : 'var(--purple-pale)';
+  document.getElementById('btnAllTime').style.borderColor = filter === 'all' ? 'rgba(124,58,237,0.6)' : 'var(--purple-border)';
+  document.getElementById('btnAllTime').style.color = filter === 'all' ? '#fff' : 'var(--purple-light)';
+  loadData();
+}
+
+function filterRows(rows) {
+  if (currentFilter === 'all') return rows;
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('en-GB');
+  return rows.filter(r => {
+    if (!r['Timestamp']) return false;
+    const d = new Date(r['Timestamp']);
+    return d.toLocaleDateString('en-GB') === todayStr;
+  });
+}
+
 async function loadData() {
   document.getElementById('lastUpdated').textContent = 'Refreshing...';
   try {
     const res = await fetch(CSV_URL + '&t=' + Date.now());
     const text = await res.text();
-    const rows = parseCSV(text);
+    const allRows = parseCSV(text);
+    const rows = filterRows(allRows);
 
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('dashboardContent').style.display = 'block';
@@ -879,8 +908,9 @@ async function loadData() {
     buildRatings(rows);
 
     const now = new Date();
+    const filterLabel = currentFilter === 'today' ? 'Today · ' : 'All time · ';
     document.getElementById('lastUpdated').textContent =
-      'Updated ' + now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+      filterLabel + rows.length + ' visits · ' + now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
   } catch(err) {
     document.getElementById('loadingState').innerHTML =
       '<div class="error-state">Could not load data.<br>Check your internet connection and try refreshing.<br><br>' +
